@@ -1,0 +1,23 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: For Log Aggregation kinesis Data Streams
+
+Parameters:
+  KinesisShardCount:
+    Type: Number
+    Default: 1
+  KinesisRetentionPeriodHours:
+    Type: Number
+    Default: 24
+  KinesisDataStreamsName:
+    Type: String
+    Default: stream
+
+Resources:
+  KinesisDataStreams:
+    Type: AWS::Kinesis::Stream
+    Properties: 
+      Name: !Ref KinesisDataStreamsName
+      RetentionPeriodHours: !Ref KinesisRetentionPeriodHours
+      ShardCount: !Ref KinesisShardCount
+

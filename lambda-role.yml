@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform:
+- AWS::Serverless-2016-10-31
+
+Parameters:
+  KinesisDataStreamsName:
+    Type: String
+  LogBucketName:
+    Type: String
+
+Resources:
+  KinesisToSendLogRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: "kinesis_to_s3_lambda"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:DescribeLogStreams"
+                Resource: "*"
+              - Effect: "Allow"
+                Action: "s3:*"
+                Resource:
+                  - !Sub 'arn:aws:s3:::${LogBucketName}/nginx/*'   # example storage log location
+              - Effect: "Allow"
+                Action: "kinesis:*"
+                Resource: !Sub 'arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/${KinesisDataStreamsName}'
+
+  KinesisToErrorLogRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: "kinesis_to_error"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:DescribeLogStreams"
+                Resource: "*"
+              - Effect: "Allow"
+                Action: "s3:*"
+                Resource:
+                  - !Sub 'arn:aws:s3:::${LogBucketName}/nginx_error/*'     # example storage log location
+                  - !Sub 'arn:aws:s3:::${LogBucketName}/php-fpm-error/*'   # example storage log location
+              - Effect: "Allow"
+                Action: "kinesis:*"
+                Resource: !Sub 'arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/${KinesisDataStreamsName}'
+
+  LambdaAlertRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: "lambda_alert"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:DescribeLogStreams"
+                  - "sns:*"
+                  - "events:*"
+                Resource: "*"
+
+Outputs:
+  Arn:
+    Value: !GetAtt KinesisToSendLogRole.Arn
+  ErrorArn:
+    Value: !GetAtt KinesisToErrorLogRole.Arn
+  AlertArn:
+    Value: !GetAtt LambdaAlertRole.Arn

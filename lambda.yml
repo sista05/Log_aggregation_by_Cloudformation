@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform:
+- AWS::Serverless-2016-10-31
+
+Parameters:
+  KinesisDataStreamsName:
+    Type: String
+  LogBucketName:
+    Type: String
+  SlackWebhook:
+    Description: "Slack SlackWebhook"
+    Type: String
+  Channel:
+    Description: "send Slack Channel"
+    Type: String
+    Default: "test"
+  Name:
+    Description: "App Name"
+    Type: String
+    Default: "go"
+  ESURL:
+    Type: String
+  Appindex:
+    Type: String
+    Default: "application"
+  Appindextype:
+    Type: String
+    Default: "type"
+  Nginxindex:
+    Type: String
+    Default: "rlx_access"
+  Nginxindextype:
+    Type: String
+    Default: "type"
+  KinesisToSendLogRoleArn:
+    Type: String
+  KinesisToSendErrorLogRoleArn:
+    Type: String
+  LambdaAlertRoleArn:
+    Type: String
+
+Resources:
+  KinesisToSendLog:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: kinesis-send-log
+      Description : "Send nginx access log to s3/slack/elasticsearch"
+      CodeUri: 'build/sendlog.zip'
+      Handler: /build/sendlog
+      Runtime: go1.x
+      Timeout: 30
+      Role: !Ref KinesisToSendLogRoleArn
+      Environment:
+        Variables:
+          REGION: 'ap-northeast-1'
+          S3_BUCKET: !Sub '${LogBucketName}'
+          ES_APP_INDEX: !Sub '${Appindex}'
+          ES_APP_INDEXTYPE: !Sub '${Appindextype}'
+          ES_NGINX_INDEX: !Sub '${Nginxindex}'
+          ES_NGINX_INDEXTYPE: !Sub '${Nginxindextype}'
+          ES_URL: !Sub 'https://${ESURL}'
+          SLACK_WEBHOOK_URL: !Sub '${SlackWebhook}'
+          SLACK_NAME: !Sub '${Name}'
+
+  KinesisToSendErrorLog:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: kinesis-send-error-log
+      Description : "Send nginx and php-fpm error log to s3/slack"
+      CodeUri: 'build/senderrorlog.zip'
+      Handler: /build/senderrorlog
+      Runtime: go1.x
+      Timeout: 30
+      Role: !Ref KinesisToSendErrorLogRoleArn
+      Environment:
+        Variables:
+          REGION: 'ap-northeast-1'
+          S3_BUCKET: !Sub '${LogBucketName}'
+          SLACK_WEBHOOK_URL: !Sub '${SlackWebhook}'
+          SLACK_CHANNEL: !Sub '${Channel}'
+          SLACK_NAME: !Sub '${Name}'
+
+  LambdaAlert:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: alert-lambda-failure
+      Description : "Send notification alert when AWS Lambda function has an error"
+      CodeUri: 'build/alert.zip'
+      Handler: /build/alert
+      Runtime: go1.x
+      Timeout: 30
+      Role: !Ref LambdaAlertRoleArn
+      Environment:
+        Variables:
+          SLACK_WEBHOOK_URL: !Sub '${SlackWebhook}'
+          SLACK_CHANNEL: !Sub '${Channel}'
+          SLACK_NAME: !Sub '${Name}'
+
+  EventSourceMappingToKinesisToSendLog:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !Sub 'arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/${KinesisDataStreamsName}'
+      BatchSize: 1000
+      Enabled: True
+      FunctionName: !GetAtt KinesisToSendLog.Arn
+      StartingPosition: "LATEST"
+  EventSourceMappingToKinesisToSendErrorLog:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !Sub 'arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/${KinesisDataStreamsName}'
+      BatchSize: 1000
+      Enabled: True
+      FunctionName: !GetAtt KinesisToSendErrorLog.Arn
+      StartingPosition: "LATEST"
+
+Outputs:
+  KinesisToSendLog:
+    Value: !Ref KinesisToSendLog
+  KinesisToSendErrorLog:
+    Value: !Ref KinesisToSendErrorLog
+  LambdaAlert:
+    Value: !Ref LambdaAlert

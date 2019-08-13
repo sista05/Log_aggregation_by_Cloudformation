@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: cloudformation
+
+Parameters:
+  KinesisName:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: KinesisDataStreamsName
+  SlackWebhook:
+    Description: "Slack Webhook"
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: SlackWebhook
+  LogBucketName:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: LogBucketName
+  ElasticSearchDomain:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: ElasticSearchDomain
+
+Resources:
+  KinesisDataStreams:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: 'kinesis-data-streams.yml'
+      Parameters:
+        KinesisDataStreamsName: !Ref KinesisName
+
+  LambdaRole:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: 'lambda-role.yml'
+      Parameters:
+        KinesisDataStreamsName: !Ref KinesisName
+        LogBucketName: !Ref LogBucketName
+
+  Elasticsearch:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: 'elasticsearch.yml'
+      Parameters:
+        KinesisToSendLogRoleArn: !GetAtt LambdaRole.Outputs.Arn
+        ElasticSearchDomain: !Ref ElasticSearchDomain
+
+  Lambda:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: 'lambda.yml'
+      Parameters:
+        KinesisDataStreamsName: !Ref KinesisName
+        LogBucketName: !Ref LogBucketName
+        SlackWebhook: !Ref SlackWebhook
+        ESURL:   !GetAtt Elasticsearch.Outputs.DomainEndpoint
+        KinesisToSendLogRoleArn: !GetAtt LambdaRole.Outputs.Arn
+        KinesisToSendErrorLogRoleArn: !GetAtt LambdaRole.Outputs.ErrorArn
+        LambdaAlertRoleArn: !GetAtt LambdaRole.Outputs.AlertArn
+
+  SNS:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: 'sns.yml'
+      Parameters:
+        LambdaAlert: !GetAtt Lambda.Outputs.LambdaAlert
+
+  LambdaPermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !GetAtt Lambda.Outputs.LambdaAlert
+      Principal: "sns.amazonaws.com"
+      SourceArn: !GetAtt SNS.Outputs.Arn
+
+  CloudWatchAlarm:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: 'cloudwatch-alarm.yml'
+      Parameters:
+        KinesisToSendLog: !GetAtt Lambda.Outputs.KinesisToSendLog
+        KinesisToSendErrorLog: !GetAtt Lambda.Outputs.KinesisToSendErrorLog

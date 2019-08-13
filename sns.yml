@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: Send notification alert when AWS Lambda function has an error
+
+Parameters:
+  LambdaAlert:
+    Description: "Lambda Function Name"
+    Type: String
+
+Resources:
+  AlertSNS:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: LambdaAlert
+      TopicName: Lambda_Error_Notification
+      Subscription:
+      - Endpoint: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaAlert}'
+        Protocol: lambda
+
+Outputs:
+  Arn:
+    Value: !Ref AlertSNS

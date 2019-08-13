@@ -1,0 +1,49 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: elasticsearch
+
+Parameters:
+  Versions:
+    Type: String
+    Default: 6.7
+  ElasticSearchDomain:
+    Type: String
+  KinesisToSendLogRoleArn:
+    Type: String
+
+Resources:
+  AmazonElasticsearchService:
+    Type: AWS::Elasticsearch::Domain
+    Properties:
+      AccessPolicies:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            AWS: !Ref KinesisToSendLogRoleArn
+          Action: 'es:*'
+          Resource: !Sub arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${ElasticSearchDomain}/*
+        - Effect: Allow
+          Principal:
+            AWS: '*'
+          Action: 'es:*'
+          Resource: !Sub arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${ElasticSearchDomain}/*
+          Condition:
+            IpAddress:
+              aws:SourceIp:
+                - 192.168.100.1/32  # example IP address
+                - 152.168.100.2/32  # example IP address
+      DomainName: !Ref ElasticSearchDomain
+      EBSOptions:
+        EBSEnabled: true
+        VolumeSize: 10
+        VolumeType: gp2
+      ElasticsearchClusterConfig:
+        InstanceCount: 1
+        InstanceType: t2.small.elasticsearch
+        ZoneAwarenessEnabled: false
+      ElasticsearchVersion: !Ref Versions
+
+Outputs:
+  DomainEndpoint:
+    Value: !GetAtt AmazonElasticsearchService.DomainEndpoint

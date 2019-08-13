@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description:  monitor Cloudwatch AWS Lambda function metrics
+
+Parameters:
+  KinesisToSendLog:
+    Type: String
+  KinesisToSendErrorLog:
+    Type: String
+
+Resources:
+  KinesisToSendLogStatusCheckFaild:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: true
+      AlarmActions:
+      - !Sub 'arn:aws:sns:${AWS::Region}:${AWS::AccountId}:Lambda_Error_Notification'
+      AlarmDescription: "Send notification alert when AWS Lambda function has an error"
+      AlarmName: "kinesis-send-log-error-Alarm"
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+      - Name: FunctionName
+        Value: !Sub '${KinesisToSendLog}'
+      EvaluationPeriods: 5
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      OKActions:
+      - !Sub 'arn:aws:sns:${AWS::Region}:${AWS::AccountId}:Lambda_Error_Notification'
+      Period: 60
+      Statistic: Sum
+      Threshold: 0
+      TreatMissingData: missing
+
+  KinesisToSendErrorLogStatusCheckFaild:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: true
+      AlarmActions:
+      - !Sub 'arn:aws:sns:${AWS::Region}:${AWS::AccountId}:Lambda_Error_Notification'
+      AlarmDescription: "Send notification alert when AWS Lambda function has an error"
+      AlarmName: "kinesis-send-error-log-error-Alarm"
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+      - Name: FunctionName
+        Value: !Sub '${KinesisToSendErrorLog}'
+      EvaluationPeriods: 5
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      OKActions:
+      - !Sub 'arn:aws:sns:${AWS::Region}:${AWS::AccountId}:Lambda_Error_Notification'
+      Period: 60
+      Statistic: Sum
+      Threshold: 0
+      TreatMissingData: missing
