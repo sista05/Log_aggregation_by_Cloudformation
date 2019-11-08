@@ -7,10 +7,10 @@ This Cloudformation create necessary resources to send logs to kinesis and send 
 ```
 .
 ├── README.md
-├── build
-│   ├── alert.zip          # bring from repository go(WIP)
-│   ├── senderrorlog.zip   # bring from repository go(WIP)
-│   └── sendlog.zip        # bring from repository go(WIP)
+├── build                   # bring from repository go
+│   ├── alert.zip
+│   ├── senderrorlog.zip
+│   └── sendlog.zip
 ├── cloudformation.yml
 ├── cloudwatch-alarm.yml
 ├── elasticsearch.yml
